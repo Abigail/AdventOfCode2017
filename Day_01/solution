@@ -1,0 +1,42 @@
+#!/opt/perl/bin/perl
+
+#
+# Input: a cyclic string of digits.
+#
+
+# Part 1:
+#
+# Find the sum of the digits matching the digit following it.
+#
+# Part 2:
+#
+# Find the sum of the digits matching "the opposite".
+
+use 5.010;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use List::Util 'sum';
+
+my $input = `cat input`;
+chomp $input;
+
+#
+# Part 1
+#
+my $str1 = $input . substr $input, 0, 1;
+
+say sum $str1 =~ /(.)(?=\1)/g;
+
+#
+# Part 2
+#
+my $str2 = $input;
+my $skip = length ($input) / 2 - 1;
+
+no warnings 'uninitialized';
+say 2 * sum $str2 =~ /(.)(?=.{$skip}\1)/g;
+
+__END__
