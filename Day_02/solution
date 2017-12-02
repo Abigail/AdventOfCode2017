@@ -1,0 +1,44 @@
+#!/opt/perl/bin/perl
+
+#
+# Input: a "spreadsheet", lines with numbers (separated by whitespace).
+# Calculate: checksums.
+#
+# For part 1, for each line, find the smallest and largest number. The
+# checksum is the sum (over all lines) of the difference between the
+# largest and smallest number.
+#
+# For part 2, for each line, find the unique pair of numbers which evenly
+# divide each other. The checksum is the sum (over all lines) of the 
+# quotients of those pairs.
+#
+
+use 5.010;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+my @input = `cat input`;
+my $sum1  =  0;
+my $sum2  =  0;
+
+LINE:
+foreach my $line (@input) {
+    my @list = sort {$a <=> $b} $line =~ /([0-9]+)/g;
+    $sum1 += $list [-1] - $list [0];
+    foreach (my $i = 0; $i < @list; $i ++) {
+        my $smaller = $list [$i];
+        foreach (my $j = $i + 1; $j < @list; $j ++) {
+            my $larger = $list [$j];
+            next if $larger % $smaller;
+            $sum2 += $larger /$smaller;
+            next LINE;
+        }
+    }
+}
+
+say "Solution1: $sum1";
+say "Solution2: $sum2";
+
+__END__
