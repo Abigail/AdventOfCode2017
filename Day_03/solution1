@@ -1,0 +1,45 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use           experimental 'signatures';
+no  warnings 'experimental::signatures';
+
+use List::Util 'min';
+
+my $input = 265149;
+
+#
+# Start by finding the corner points of the "ring" the input is in.
+# Also record the distance of the "ring" from the center (d1).
+#
+my $N = 1;
+my $d1 = 0;
+while ($N * $N < $input) {
+    $N += 2;
+    $d1 ++;
+}
+my @corners = map {$N * $N - $_ * ($N - 1)} 3, 2, 1, 0;
+
+#
+# Find the mid points of said "ring".
+#
+my @mids    = map {$_ - ($N - 1) / 2} @corners;
+
+#
+# Distance to the mid point
+#
+my $d2      = min map {abs ($_ - $input)} @mids;
+
+#
+# Total distance
+#
+my $dist    = $d1 + $d2;
+
+say "input: $input; distance $dist";
+
+__END__
