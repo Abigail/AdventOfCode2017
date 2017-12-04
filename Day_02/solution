@@ -84,8 +84,8 @@ foreach my $line (@input) {
         my $smaller = $list [$i];
         foreach (my $j = $i + 1; $j < @list; $j ++) {
             my $larger = $list [$j];
-            next if $larger % $smaller;
-            $sum2 += $larger /$smaller;
+            next if  $larger % $smaller;
+            $sum2 += $larger / $smaller;
             next LINE;
         }
     }
