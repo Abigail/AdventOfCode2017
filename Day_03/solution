@@ -122,36 +122,61 @@ my %values;
 
 my $count = 0;
 
-$values {0} {0} = 1; # Center
+#
+# Move a point in a particular direction.
+#
+sub move ($point, $direction) {
+    [map {$$point [$_] + $$direction [$_]} keys @$point];
+}
 
 #
-# Given an $x and $y coordinate, calculate the sum of its neighbours.
-# Perl conveniently assumines undef to be 0.
+# Set/get the value at a particular point
 #
-sub fill ($x, $y) {
+sub set ($point, $value) {
+    $values {$$point [0]} {$$point [1]} = $value;
+}
+
+sub get ($point) {
+    $values {$$point [0]} {$$point [1]};
+}
+
+
+#
+# Given a point, calculate the sum of its neighbours.
+# Perl conveniently assumes undef to be 0.
+#
+sub fill ($point) {
+    my $sum = 0;
     foreach my $dx (-1 .. 1) {
         foreach my $dy (-1 .. 1) {
             next unless $dx || $dy;  # Could even leave this off...
             no warnings 'uninitialized';
-            $values {$x} {$y} += $values {$x + $dx} {$y + $dy};
+            $sum += get move $point, [$dx, $dy];
         }
     }
+    set $point => $sum;
 }
 
-my $p = [1, 0];
-fill @$p;            # First point of second ring.
+
+#
+# Start in the center; initialize center to 1.
+my $point = [0, 0];
+set ($point => 1);
 
 OUTER: for (my $N = 1; ;$N += 2) {
-    foreach my $d (([ 0,  1]) x  $N,         # Walk the edges of a
-                   ([-1,  0]) x ($N + 1),    # ring, counter clockwise
-                   ([ 0, -1]) x ($N + 1),    # ending at the first point
-                   ([ 1,  0]) x ($N + 2)) {  # of the next ring.
-        $$p [0] += $$d [0];
-        $$p [1] += $$d [1];
-        fill @$p;
-        if ($values {$$p [0]} {$$p [1]} > $input) {  # Are we done?
-            say "Solution 2: ", $values {$$p [0]} {$$p [1]};
-            last OUTER;
+    $point = move $point => [1, -1];
+
+    #
+    # Walk the four edges, each in $N + 1 steps
+    #
+    foreach my $direction ([0, 1], [-1, 0], [0, -1], [1, 0]) {
+        foreach my $step (0 .. $N) {
+            $point = move $point => $direction;
+            fill $point;
+            if (get ($point) > $input) {
+                say "Solution 2: ", get ($point);
+                last OUTER;
+            }
         }
     }
 }
