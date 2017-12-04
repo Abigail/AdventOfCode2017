@@ -76,7 +76,8 @@ no  warnings 'experimental::signatures';
 
 use List::Util 'min';
 
-my $input = 265149;
+@ARGV = "input" unless @ARGV;
+chomp (my $input = <>);
 
 #
 # Solving part 1
