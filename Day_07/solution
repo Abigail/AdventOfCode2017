@@ -173,7 +173,7 @@ my ($bottom) = grep {!$below {$_}} keys %weight;
 # The bad disc will be directly above the highest unbalanced
 # disc -- which will be the one with the least total weight.
 #
-# To find the bad disk, it must be the only tower whose weight
+# To find the bad disc, it must be the only tower whose weight
 # differs from the rest. (So, the unbalanced disc has all but
 # one tower having equal weight; the bottom of the tower with
 # a different weight is the bad disc).
