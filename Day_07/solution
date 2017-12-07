@@ -1,0 +1,236 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use           experimental 'signatures';
+no  warnings 'experimental::signatures';
+
+#
+# Part 1
+#
+# Wandering further through the circuits of the computer, you come
+# upon a tower of programs that have gotten themselves into a bit of
+# trouble. A recursive algorithm has gotten out of hand, and now
+# they're balanced precariously in a large tower.
+# 
+# One program at the bottom supports the entire tower. It's holding
+# a large disc, and on the disc are balanced several more sub-towers.
+# At the bottom of these sub-towers, standing on the bottom disc, are
+# other programs, each holding their own disc, and so on. At the very
+# tops of these sub-sub-sub-...-towers, many programs stand simply
+# keeping the disc below them balanced but with no disc of their own.
+# 
+# You offer to help, but first you need to understand the structure
+# of these towers. You ask each program to yell out their name, their
+# weight, and (if they're holding a disc) the names of the programs
+# immediately above them balancing on that disc. You write this
+# information down (your puzzle input). Unfortunately, in their panic,
+# they don't do this in an orderly fashion; by the time you're done,
+# you're not sure which program gave which information.
+# 
+# For example, if your list is the following:
+# 
+#      pbga (66)
+#      xhth (57)
+#      ebii (61)
+#      havc (66)
+#      ktlj (57)
+#      fwft (72) -> ktlj, cntj, xhth
+#      qoyq (66)
+#      padx (45) -> pbga, havc, qoyq
+#      tknk (41) -> ugml, padx, fwft
+#      jptl (61)
+#      ugml (68) -> gyxo, ebii, jptl
+#      gyxo (61)
+#      cntj (57)
+#
+# ...then you would be able to recreate the structure of the towers that
+# looks like this:
+#
+#                     gyxo
+#                   /     
+#              ugml - ebii
+#            /      \     
+#           |         jptl
+#           |        
+#           |         pbga
+#          /        /
+#     tknk --- padx - havc
+#          \        \
+#           |         qoyq
+#           |             
+#           |         ktlj
+#            \      /     
+#              fwft - cntj
+#                   \     
+#                     xhth
+#
+# In this example, tknk is at the bottom of the tower (the bottom
+# program), and is holding up ugml, padx, and fwft. Those programs
+# are, in turn, holding up other programs; in this example, none of
+# those programs are holding up any other programs, and are all the
+# tops of their own towers. (The actual tower balancing in front of
+# you is much larger.)
+# 
+# Before you're ready to help them, you need to make sure your
+# information is correct. What is the name of the bottom program?
+#
+
+#
+# Part 2
+#
+# The programs explain the situation: they can't get down. Rather,
+# they could get down, if they weren't expending all of their energy
+# trying to keep the tower balanced. Apparently, one program has the
+# wrong weight, and until it's fixed, they're stuck here.
+# 
+# For any program holding a disc, each program standing on that disc
+# forms a sub-tower. Each of those sub-towers are supposed to be the
+# same weight, or the disc itself isn't balanced. The weight of a
+# tower is the sum of the weights of the programs in that tower.
+# 
+# In the example above, this means that for ugml's disc to be balanced,
+# gyxo, ebii, and jptl must all have the same weight, and they do:
+# 61.
+# 
+# However, for tknk to be balanced, each of the programs standing on
+# its disc and all programs above it must each match. This means that
+# the following sums must all be the same:
+#
+#    ugml + (gyxo + ebii + jptl) = 68 + (61 + 61 + 61) = 251
+#    padx + (pbga + havc + qoyq) = 45 + (66 + 66 + 66) = 243
+#    fwft + (ktlj + cntj + xhth) = 72 + (57 + 57 + 57) = 243
+#
+# As you can see, tknk's disc is unbalanced: ugml's stack is heavier
+# than the other two. Even though the nodes above ugml are balanced,
+# ugml itself is too heavy: it needs to be 8 units lighter for its
+# stack to weigh 243 and keep the towers balanced. If this change
+# were made, its weight would be 60.
+# 
+# Given that exactly one program is the wrong weight, what would its
+# weight need to be to balance the entire tower?
+#
+
+use List::Util 'sum';
+
+@ARGV = "input" unless @ARGV;
+
+my %weight;  # Map name of disc to its weight
+my %below;   # Map name of disc to one below it
+my %above;   # Map name of disc to names of disc above it.
+my %total;   # Map name of disc to *total* weight of disc + towers
+
+#
+# Calculate the weight of an entire tower, including the bottom disc.
+# This is a recursive function, but since we cache results, the entire
+# run time should be linear. And the order in which we call this method
+# will not matter.
+#
+sub total ($name) {
+    $total {$name} //= 
+        sum $weight {$name}, map {total ($_)} @{$above {$name} || []};
+}
+
+#
+# Parse the input, store the name, the weight of the disc, which
+# discs are above it (if any) and which one is below it (if any)
+#
+while (<>) {
+    /^(?<name>[a-z]+) \s+ \( (?<weight>[0-9]+) \)
+      (?: \s* -> \s* (?<above>[a-z\s,]*[a-z]))? \s* $/x
+          or die "Failed to parse $_";
+
+    my ($name, $weight) = ($+ {name}, $+ {weight});
+    my @above;
+    if ($+ {above}) {
+        @above = split /,\s*/ => $+ {above};
+    }
+
+    $weight {$name} = $weight;
+    foreach my $above (@above) {
+        $below {$above} = $name;
+        push @{$above {$name}} => $above;
+    }
+}
+
+#
+# Calculate the weights of the disc + tower(s) above them
+#
+total $_ for keys %weight;
+
+#
+# Find the one with nothing below it -- this is the answer to part 1
+#
+my ($bottom) = grep {!$below {$_}} keys %weight;
+
+#
+# For part 2, we find the unbalanced discs. Since only one
+# disc has a bad weigth, the unbalanced disc form a tower.
+# The bad disc will be directly above the highest unbalanced
+# disc -- which will be the one with the least total weight.
+#
+# To find the bad disk, it must be the only tower whose weight
+# differs from the rest. (So, the unbalanced disc has all but
+# one tower having equal weight; the bottom of the tower with
+# a different weight is the bad disc).
+#
+# Now we know the bad disc, and we know how much it's off.
+#
+
+#
+# Find the unbalanced discs. For each disc, we find the weights of
+# towers above it, and sort the weights. If the min and max of those
+# weights are equal, the disc is balanced. Otherwise, it's not.
+#
+my @unbalanced;
+foreach my $name (keys %above) {
+    if ($above {$name} && @{$above {$name}}) {
+        my @towers = sort {$a <=> $b} map {$total {$_}} @{$above {$name}};
+        push @unbalanced => $name if $towers [0] != $towers [-1];
+    }
+}
+
+#
+# Now, the "bad" disc is above the highest unbalanced disc -- which 
+# must be the one with the lowest weight.
+#
+my ($top_unbalanced) = sort {$total {$a} <=> $total {$b}} @unbalanced;
+
+#
+# Count the weights of the towers above this one -- and find the
+# odd one out.
+#
+my %towers;
+foreach my $name (@{$above {$top_unbalanced}}) {
+    $towers {$total {$name}} ++;
+}
+my ($ok_weight, $bad_weight);
+foreach my $weight (keys %towers) {
+    if ($towers {$weight} == 1) {$bad_weight = $weight}
+    else                        {$ok_weight  = $weight}
+}
+
+#
+# Calculate how much the bad tower is off
+#
+my $adjustment = $ok_weight - $bad_weight;
+
+#
+# Which one has the bad weight?
+#
+my ($bad_disc) = grep {$total {$_} == $bad_weight} @{$above {$top_unbalanced}};
+
+#
+# Correct weight
+#
+my $correct_weight = $weight {$bad_disc} + $adjustment;
+
+say "Solution 1: $bottom";
+say "Solution 2: $correct_weight";
+
+
+__END__
