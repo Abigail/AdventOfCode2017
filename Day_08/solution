@@ -1,0 +1,142 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+#
+# Part 1
+#
+# You receive a signal directly from the CPU. Because of your recent
+# assistance with jump instructions, it would like you to compute the
+# result of a series of unusual register instructions.
+# 
+# Each instruction consists of several parts: the register to modify,
+# whether to increase or decrease that register's value, the amount
+# by which to increase or decrease it, and a condition. If the condition
+# fails, skip the instruction without modifying the register. The
+# registers all start at 0. The instructions look like this:
+# 
+#    b inc 5 if a > 1
+#    a inc 1 if b < 5
+#    c dec -10 if a >= 1
+#    c inc -20 if c == 10
+# 
+# These instructions would be processed as follows:
+# 
+#     Because a starts at 0, it is not greater than 1,
+#             and so b is not modified.
+#     a is increased by 1 (to 1) because b is less than 5 (it is 0).
+#     c is decreased by -10 (to 10) because a is now greater than or
+#             equal to 1 (it is 1).
+#     c is increased by -20 (to -10) because c is equal to 10.
+# 
+# After this process, the largest value in any register is 1.
+# 
+# You might also encounter <= (less than or equal to) or != (not equal
+# to). However, the CPU doesn't have the bandwidth to tell you what
+# all the registers are named, and leaves that to you to determine.
+# 
+# What is the largest value in any register after completing the
+# instructions in your puzzle input?
+# 
+
+#
+# Part 2
+#
+# To be safe, the CPU also needs to know the highest value held in
+# any register during this process so that it can decide how much
+# memory to allocate to these operations. For example, in the above
+# instructions, the highest value ever held was 10 (in register c
+# after the third instruction was evaluated).
+# 
+
+use experimental 'signatures';
+
+use List::Util 'max';
+
+@ARGV = "input" unless @ARGV;
+
+my %register;  # Stores the values of registers. Perl treats undefined
+               # values as '0' in numeric context, which is conveniently,
+               # the value registers start with.
+
+#
+# A dispatch table, handling the "if" part of a rule. We dispatch
+# on the relation, and pass in the name of register, and the value
+# to compare it with. Result is a boolean value.
+#
+# Registers may be undefined, hence the "no warnings" line.
+#
+my %dispatch_cmp = do {
+    no warnings 'uninitialized';
+    (
+        "<"   =>  sub ($name, $value) {$register {$name} <  $value},
+        "<="  =>  sub ($name, $value) {$register {$name} <= $value},
+        "=="  =>  sub ($name, $value) {$register {$name} == $value},
+        ">="  =>  sub ($name, $value) {$register {$name} >= $value},
+        ">"   =>  sub ($name, $value) {$register {$name} >  $value},
+        "!="  =>  sub ($name, $value) {$register {$name} != $value},
+    );
+};
+
+#
+# A dispatch table, handling the action which needs to be taken.
+# We dispatch on the action, and pass in the name of the target
+# register, and the amount to be incremented/decremented.
+#
+# Since "+=" and "-=" are exempt for being warned when used
+# agains an undefined value, no need to turn off warnings.
+#
+my %dispatch_act = (
+    "inc"  =>  sub ($name, $amount) {$register {$name} += $amount},
+    "dec"  =>  sub ($name, $amount) {$register {$name} -= $amount},
+);
+
+
+#
+# Sub patterns to parse the input.
+#
+my $pat_reg = qr /[a-z]+/;
+my $pat_num = qr /-?[0-9]+/;
+my $pat_act = qr /inc|dec/;
+my $pat_cmp = qr /<=? | == | >=? | !=/x;
+
+
+my $max = 0;   # Highest value encountered in any register.
+               # Since registers start at 0, starting at 0 
+               # for $max is the right thing to do.
+while (<>) {
+    chomp;
+    /^(?<target> $pat_reg)  \s+
+      (?<action> $pat_act)  \s+
+      (?<amount> $pat_num)  \s+ if \s+
+      (?<where>  $pat_reg)  \s+
+      (?<cmp>    $pat_cmp)  \s+
+      (?<value>  $pat_num)  \s*$/x or die "Failed to parse $_";
+
+    my ($target, $action, $amount,
+        $where,  $cmp,    $value) = @+{"target", "action", "amount",
+                                       "where",  "cmp",    "value"};
+
+    #
+    # Act on the rule
+    #
+    $dispatch_act {$action} -> ($target, $amount) 
+          if $dispatch_cmp {$cmp} -> ($where, $value);
+
+    #
+    # This is safe to do, even if we didn't modify the target register
+    #
+    $max = $register {$target} if $register {$target} &&
+                                  $register {$target} > $max;
+}
+
+
+say "Solution 1: ",  max values %register;
+say "Solution 2: ", $max;
+
+
+__END__
