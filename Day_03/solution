@@ -110,7 +110,7 @@ my $d2      = min map {abs ($_ - $input)} @mids;
 #
 my $dist    = $d1 + $d2;
 
-say "Solution1: $dist";
+say "Solution 1: $dist";
 
 
 #

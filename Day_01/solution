@@ -72,7 +72,7 @@ chomp $input;
 #
 my $str1 = $input . substr $input, 0, 1;
 
-say sum $str1 =~ /(.)(?=\1)/g;
+say "Solution 1: ", sum $str1 =~ /(.)(?=\1)/g;
 
 #
 # Part 2
@@ -81,6 +81,6 @@ my $str2 = $input;
 my $skip = length ($input) / 2 - 1;
 
 no warnings 'uninitialized';
-say 2 * sum $str2 =~ /(.)(?=.{$skip}\1)/g;
+say "Solution 2: ", 2 * sum $str2 =~ /(.)(?=.{$skip}\1)/g;
 
 __END__

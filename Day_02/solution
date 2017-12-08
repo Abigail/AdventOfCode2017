@@ -91,7 +91,7 @@ foreach my $line (@input) {
     }
 }
 
-say "Solution1: $sum1";
-say "Solution2: $sum2";
+say "Solution 1: $sum1";
+say "Solution 2: $sum2";
 
 __END__
