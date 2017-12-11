@@ -1,0 +1,120 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use experimental 'signatures';
+
+#
+# Part 1
+#
+# Crossing the bridge, you've barely reached the other side of the
+# stream when a program comes up to you, clearly in distress. "It's
+# my child process," she says, "he's gotten lost in an infinite grid!"
+# 
+# Fortunately for her, you have plenty of experience with infinite grids.
+# 
+# Unfortunately for you, it's a hex grid.
+# 
+# The hexagons ("hexes") in this grid are aligned such that adjacent
+# hexes can be found to the north, northeast, southeast, south,
+# southwest, and northwest:
+# 
+#       \ n  /
+#     nw +--+ ne
+#       /    \
+#     -+      +-
+#       \    /
+#     sw +--+ se
+#       / s  \
+# 
+# You have the path the child process took. Starting where he started,
+# you need to determine the fewest number of steps required to reach
+# him. (A "step" means to move from the hex you are in to any adjacent
+# hex.)
+# 
+# For example:
+# 
+#    - ne,ne,ne is 3 steps away.
+#    - ne,ne,sw,sw is 0 steps away (back where you started).
+#    - ne,ne,s,s is 2 steps away (se,se).
+#    - se,sw,se,sw,sw is 3 steps away (s,s,sw).
+#
+
+#
+# Part 2
+#
+# How many steps away is the furthest he ever got from his starting position?
+#
+
+@ARGV = "input" unless @ARGV;
+
+#
+# Input is all on one line
+#
+my $input = <>;
+chomp $input;
+
+#
+# We will use "axial" coordinates for the hex grid. That is, the
+# center is (0, 0) and the neighbours of each point are found by
+# adding the coordinates according the following table:
+#
+my %d = (
+    ne => [ 1, -1],
+    se => [ 1,  0],
+    s  => [ 0,  1],
+    sw => [-1,  1],
+    nw => [-1,  0],
+    n  => [ 0, -1],
+);
+
+#
+# Calculate the distance from the origin. This is a special case
+# of the general formula between two points $a and $b in the axial
+# coordinate system:
+#
+#    (abs ($$a [0] - $$b [0]) +
+#     abs ($$a [0] + $$a [1] - $$b [0] - $$b [1]) +
+#     abs ($$a [1] - $$b [1])) / 2;
+#
+sub distance ($hex) {
+    (abs ($$hex [0]) + abs ($$hex [0] + $$hex [1]) + abs ($$hex [1])) / 2;
+}
+
+#
+# Get the steps.
+#
+my @steps = split /,\s*/ => $input;
+
+#
+# Starting point of the child.
+#
+my $child = [0, 0];
+
+#
+# Walk the child; remember the current and furthest distance.
+#
+my $furthest = 0;
+my $current  = 0;
+foreach my $step (@steps) {
+    my $d = $d {$step} or die "Illegal step: $step";
+    $$child [$_] += $$d [$_] for keys @$child;
+    $current = distance $child;
+    $furthest = $current if $current > $furthest;
+}
+
+say "Solution 1: $current";
+say "Solution 2: $furthest";
+
+
+__END__
+
+=pod
+
+L<https://www.redblobgames.com/grids/hexagons/>
+
+=cut
