@@ -97,99 +97,7 @@ use Puzzle::Stuff;   # https://github.com/Abigail/Puzzle-Stuff
 
 @ARGV = "input" unless @ARGV;
 
-my $LIST_SIZE    = 256;
-my $ITERATIONS   =  64;
-my @SUFFIX_MOVES = (17, 31, 73, 47, 23);
 my $BOARD_SIZE   = 128;
-
-#
-# Class for the list. (Copied from Day 10)
-#
-package List {
-    use Hash::Util 'fieldhash';
-
-    fieldhash my %list;
-    fieldhash my %position;
-    fieldhash my %skip;
-
-    #
-    # Create empty object
-    #
-    sub new  ($class) {
-        bless do {\my $var} => $class;
-    }
-
-    #
-    # Initialize the list
-    #
-    sub init ($self, %args) {
-        $list     {$self} = [0 .. $args {size} - 1];
-        $position {$self} =  0;
-        $skip     {$self} =  0; 
-
-        $self;
-    }
-
-    #
-    # Perform a move. 
-    #
-    sub move ($self, $length) {
-        #
-        # Get the size of the list.
-        #
-        my $size = @{$list {$self}};
-
-        #
-        # Find the indices of the elements which need to be reversed.
-        # This is simply starting from the current position, and then
-        # the next $length - 1 element. (For a length of 0, this is
-        # an empty list). We mod it with the length of the list to
-        # handle the wrapping.
-        #
-        my @positions = map {$_ % $size} $position {$self} ..
-                                        ($position {$self} + $length - 1);
-        #
-        # Reverse the elements by assigning a slice to a slice.
-        #
-        @{$list {$self}} [@positions] = @{$list {$self}} [reverse @positions];
-
-        #
-        # Increment the current position with the length of the move,
-        # and the skip size; wrap the position, and increment the skip
-        # size. (We could mod the skip size with the size of the list as
-        # well, but that would only matter once skip reaches the size of
-        # MAX_INT.)
-        #
-        $position {$self} += $length + $skip {$self} ++;
-        $position {$self} %= $size;
-    }
-
-    #
-    # The product of the first two elements of the list.
-    #
-    sub product ($self) {
-        $list {$self} [0] * $list {$self} [1];
-    }
-
-    #
-    # Create a dense hash. 
-    #
-    sub dense_hash ($self) {
-        my $square = sqrt @{$list {$self}};
-        my @xors;  # Xor-ed values of each $square set of numbers
-        for (my $i = 0; $i < $square; $i ++) {
-            my $xor = 0;
-            for (my $j = 0; $j < $square; $j ++) {
-                # Xor is communiative, so we can do them one-by-one
-                $xor ^= ($list {$self} [$i * $square + $j] || 0);
-            }
-            push @xors => $xor;
-        }
-
-        # Concatenate all the values in hex digits.
-        join "" => map {sprintf "%02x" => $_} @xors;
-    }
-}
 
 my $input = <>;   # Input is on one line;
 chomp $input;
@@ -198,17 +106,20 @@ chomp $input;
 my $total_bits = 0;
 my $board;
 foreach my $row (0 .. ($BOARD_SIZE - 1)) {
-    my @moves = map {ord} split // => "$input-$row";
-    push @moves => @SUFFIX_MOVES;
-
+    #
+    # Initialize a new row of the board
+    #
     $$board [$row] = [];
 
     #
-    # Create a list; perform the moves, and create a hash
+    # The key for this row
     #
-    my $list = List:: -> new -> init (size => $LIST_SIZE);
-    $list -> move ($_) for (@moves) x $ITERATIONS;
-    my $hash = $list -> dense_hash;
+    my $key = "$input-$row";
+
+    #
+    # Create the hash
+    #
+    my $hash = Puzzle::Stuff::KnotHash:: -> new -> init -> encode ($key);
 
     #
     # For each character in the hash, find its representation
@@ -220,7 +131,6 @@ foreach my $row (0 .. ($BOARD_SIZE - 1)) {
         $total_bits += $bits =~ y/1/1/;
     }
 }
-say "Solution 1: ", $total_bits;
 
 #
 # Find the number of connected components by using UnionFind:
@@ -245,6 +155,8 @@ foreach my $x (0 .. ($BOARD_SIZE - 1)) {
     }
 }
 
+say "Solution 1: ", $total_bits;
 say "Solution 2: ", $universe -> nr_of_sets;
+
 
 __END__
