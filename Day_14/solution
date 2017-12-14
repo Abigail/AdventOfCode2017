@@ -1,0 +1,266 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use experimental 'signatures';
+
+#
+# Part 1
+#
+# Suddenly, a scheduled job activates the system's disk defragmenter.
+# Were the situation different, you might sit and watch it for a
+# while, but today, you just don't have that kind of time. It's soaking
+# up valuable system resources that are needed elsewhere, and so the
+# only option is to help it finish its task as soon as possible.
+# 
+# The disk in question consists of a 128x128 grid; each square of the
+# grid is either free or used. On this disk, the state of the grid
+# is tracked by the bits in a sequence of knot hashes.
+# 
+# A total of 128 knot hashes are calculated, each corresponding to a
+# single row in the grid; each hash contains 128 bits which correspond
+# to individual grid squares. Each bit of a hash indicates whether
+# that square is free (0) or used (1).
+# 
+# The hash inputs are a key string (your puzzle input), a dash, and
+# a number from 0 to 127 corresponding to the row. For example, if
+# your key string were flqrgnkx, then the first row would be given
+# by the bits of the knot hash of flqrgnkx-0, the second row from the
+# bits of the knot hash of flqrgnkx-1, and so on until the last row,
+# flqrgnkx-127.
+# 
+# The output of a knot hash is traditionally represented by 32
+# hexadecimal digits; each of these digits correspond to 4 bits, for
+# a total of 4 * 32 = 128 bits. To convert to bits, turn each hexadecimal
+# digit to its equivalent binary value, high-bit first: 0 becomes
+# 0000, 1 becomes 0001, e becomes 1110, f becomes 1111, and so on; a
+# hash that begins with a0c2017... in hexadecimal would begin with
+# 10100000110000100000000101110000... in binary.
+# 
+# Continuing this process, the first 8 rows and columns for key
+# flqrgnkx appear as follows, using # to denote used squares, and .
+# to denote free ones:
+# 
+#     ##.#.#..-->
+#     .#.#.#.#   
+#     ....#.#.   
+#     #.#.##.#   
+#     .##.#...   
+#     ##..#..#   
+#     .#...#..   
+#     ##.#.##.-->
+#     |      |   
+#     V      V   
+# 
+# In this example, 8108 squares are used across the entire 128x128 grid.
+# 
+# Given your actual key string, how many squares are used?
+# 
+
+#
+# Part 2
+#
+# Now, all the defragmenter needs to know is the number of regions.
+# A region is a group of used squares that are all adjacent, not
+# including diagonals. Every used square is in exactly one region:
+# lone used squares form their own isolated regions, while several
+# adjacent squares all count as a single region.
+# 
+# In the example above, the following nine regions are visible, each
+# marked with a distinct digit:
+# 
+#     11.2.3..-->
+#     .1.2.3.4   
+#     ....5.6.   
+#     7.8.55.9   
+#     .88.5...   
+#     88..5..8   
+#     .8...8..   
+#     88.8.88.-->
+#     |      |   
+#     V      V   
+# 
+# Of particular interest is the region marked 8; while it does not
+# appear contiguous in this small view, all of the squares marked 8
+# are connected when considering the whole 128x128 grid. In total,
+# in this example, 1242 regions are present.
+# 
+# How many regions are present given your key string?
+# 
+
+
+@ARGV = "input" unless @ARGV;
+
+my $LIST_SIZE    = 256;
+my $ITERATIONS   =  64;
+my @SUFFIX_MOVES = (17, 31, 73, 47, 23);
+
+#
+# Class for the list. (Copied from Day 10)
+#
+package List {
+    use Hash::Util 'fieldhash';
+
+    fieldhash my %list;
+    fieldhash my %position;
+    fieldhash my %skip;
+
+    #
+    # Create empty object
+    #
+    sub new  ($class) {
+        bless do {\my $var} => $class;
+    }
+
+    #
+    # Initialize the list
+    #
+    sub init ($self, %args) {
+        $list     {$self} = [0 .. $args {size} - 1];
+        $position {$self} =  0;
+        $skip     {$self} =  0; 
+
+        $self;
+    }
+
+    #
+    # Perform a move. 
+    #
+    sub move ($self, $length) {
+        #
+        # Get the size of the list.
+        #
+        my $size = @{$list {$self}};
+
+        #
+        # Find the indices of the elements which need to be reversed.
+        # This is simply starting from the current position, and then
+        # the next $length - 1 element. (For a length of 0, this is
+        # an empty list). We mod it with the length of the list to
+        # handle the wrapping.
+        #
+        my @positions = map {$_ % $size} $position {$self} ..
+                                        ($position {$self} + $length - 1);
+        #
+        # Reverse the elements by assigning a slice to a slice.
+        #
+        @{$list {$self}} [@positions] = @{$list {$self}} [reverse @positions];
+
+        #
+        # Increment the current position with the length of the move,
+        # and the skip size; wrap the position, and increment the skip
+        # size. (We could mod the skip size with the size of the list as
+        # well, but that would only matter once skip reaches the size of
+        # MAX_INT.)
+        #
+        $position {$self} += $length + $skip {$self} ++;
+        $position {$self} %= $size;
+    }
+
+    #
+    # The product of the first two elements of the list.
+    #
+    sub product ($self) {
+        $list {$self} [0] * $list {$self} [1];
+    }
+
+    #
+    # Create a dense hash. 
+    #
+    sub dense_hash ($self) {
+        my $square = sqrt @{$list {$self}};
+        my @xors;  # Xor-ed values of each $square set of numbers
+        for (my $i = 0; $i < $square; $i ++) {
+            my $xor = 0;
+            for (my $j = 0; $j < $square; $j ++) {
+                # Xor is communiative, so we can do them one-by-one
+                $xor ^= ($list {$self} [$i * $square + $j] || 0);
+            }
+            push @xors => $xor;
+        }
+
+        # Concatenate all the values in hex digits.
+        join "" => map {sprintf "%02x" => $_} @xors;
+    }
+}
+
+my $input = <>;   # Input is on one line;
+chomp $input;
+
+
+my $total_bits = 0;
+my $board;
+foreach my $row (0 .. 127) {
+    my @moves = map {ord} split // => "$input-$row";
+    push @moves => @SUFFIX_MOVES;
+
+    $$board [$row] = [];
+
+    #
+    # Create a list; perform the moves, and create a hash
+    #
+    my $list = List:: -> new -> init (size => $LIST_SIZE);
+    $list -> move ($_) for (@moves) x $ITERATIONS;
+    my $hash = $list -> dense_hash;
+
+    #
+    # For each character in the hash, find its representation
+    # in bits. Map to the board, and track the number of 1 bits.
+    #
+    foreach my $char (split // => $hash) {
+        my $bits = sprintf "%04b" => hex $char;
+        push @{$$board [$row]} => split // => $bits;
+        $total_bits += $bits =~ y/1/1/;
+    }
+}
+say "Solution 1: ", $total_bits;
+
+#
+# Turn the board into a graph, mapping grid-points to lists
+# of neigbhours.
+#
+my %graph;
+foreach my $x (0 .. 127) {
+    foreach my $y (0 .. 127) {
+        if ($$board [$x] [$y]) {
+            $graph {"$x,$y"} = [];  # Make sure to pick up isolated nodes
+            foreach my $d (1, -1) {
+                my $xd = $x + $d;
+                my $yd = $y + $d;
+                if ($xd >= 0 && $xd < 128) {
+                    if ($$board [$xd] [$y]) {
+                        push @{$graph {"$x,$y"}} => "$xd,$y";
+                    }
+                }
+                if ($yd >= 0 && $yd < 128) {
+                    if ($$board [$x] [$yd]) {
+                        push @{$graph {"$x,$y"}} => "$x,$yd";
+                    }
+                }
+            }
+        }
+    }
+}
+
+my $components;
+while (keys %graph) {
+    #
+    # Pick a random one
+    #
+    my ($node) = keys %graph;
+    my  @todo  = $node;
+    my %seen = ($node => 1);
+    while (@todo) {
+        push @todo => grep {!$seen {$_} ++} @{$graph {shift @todo}};
+    }
+    $components ++;
+    delete $graph {$_} for keys %seen;
+}
+
+say "Solution 2: ", $components;
+
+__END__
