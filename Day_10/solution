@@ -161,100 +161,14 @@ use experimental 'signatures';
 # whitespace you might encounter.
 # 
 
+
+#
+# All the hard work is done in Puzzle::Stuff::KnotHash; this
+# was factored out as Day 14 uses the same thing.
+#
+use Puzzle::Stuff;   # https://github.com/Abigail/Puzzle-Stuff
+
 @ARGV = "input" unless @ARGV;
-
-my $LIST_SIZE    = 256;
-my $ITERATIONS   =  64;                     # For part 2
-my @SUFFIX_MOVES = (17, 31, 73, 47, 23);    # For part 2
-
-#
-# Class for the list. 
-#
-package List {
-    use Hash::Util 'fieldhash';
-
-    fieldhash my %list;
-    fieldhash my %position;
-    fieldhash my %skip;
-
-    #
-    # Create empty object
-    #
-    sub new  ($class) {
-        bless do {\my $var} => $class;
-    }
-
-    #
-    # Initialize the list
-    #
-    sub init ($self, %args) {
-        $list     {$self} = [0 .. $args {size} - 1];
-        $position {$self} =  0;
-        $skip     {$self} =  0; 
-
-        $self;
-    }
-
-    #
-    # Perform a move. 
-    #
-    sub move ($self, $length) {
-        #
-        # Get the size of the list.
-        #
-        my $size = @{$list {$self}};
-
-        #
-        # Find the indices of the elements which need to be reversed.
-        # This is simply starting from the current position, and then
-        # the next $length - 1 element. (For a length of 0, this is
-        # an empty list). We mod it with the length of the list to
-        # handle the wrapping.
-        #
-        my @positions = map {$_ % $size} $position {$self} ..
-                                        ($position {$self} + $length - 1);
-        #
-        # Reverse the elements by assigning a slice to a slice.
-        #
-        @{$list {$self}} [@positions] = @{$list {$self}} [reverse @positions];
-
-        #
-        # Increment the current position with the length of the move,
-        # and the skip size; wrap the position, and increment the skip
-        # size. (We could mod the skip size with the size of the list as
-        # well, but that would only matter once skip reaches the size of
-        # MAX_INT.)
-        #
-        $position {$self} += $length + $skip {$self} ++;
-        $position {$self} %= $size;
-    }
-
-    #
-    # The product of the first two elements of the list.
-    #
-    sub product ($self) {
-        $list {$self} [0] * $list {$self} [1];
-    }
-
-    #
-    # Create a dense hash. 
-    #
-    sub dense_hash ($self) {
-        my $square = sqrt @{$list {$self}};
-        my @xors;  # Xor-ed values of each $square set of numbers
-        for (my $i = 0; $i < $square; $i ++) {
-            my $xor = 0;
-            for (my $j = 0; $j < $square; $j ++) {
-                # Xor is communiative, so we can do them one-by-one
-                $xor ^= ($list {$self} [$i * $square + $j] || 0);
-            }
-            push @xors => $xor;
-        }
-
-        # Concatenate all the values in hex digits.
-        join "" => map {sprintf "%02x" => $_} @xors;
-    }
-}
 
 
 #
@@ -263,56 +177,17 @@ package List {
 my $input = <>;
 chomp $input;
 
-{
-    #
-    # Part 1
-    #
-    my @moves = split /,\s*/ => $input;
 
-    #
-    # Create list
-    #
-    my $list = List:: -> new -> init (size => $LIST_SIZE);
+my $product = Puzzle::Stuff::KnotHash::
+              -> new -> init -> encode ([split /,\s*/ => $input],
+                                         no_suffix  => 1,
+                                         product    => 1,
+                                         iterations => 1);
 
-    #
-    # Move
-    #
-    $list -> move ($_) for @moves;
+say "Solution 1: ", $product;
 
-    #
-    # And the answer:
-    #
-    say "Solution 1: ", $list -> product;
-}
-
-{
-    #
-    # Part 2
-    #
-    
-    #
-    # Calculate the moves of each round:
-    #    1) Convert each character of the input to its ASCII code
-    #    2) Add a fixed set of numbers
-    #
-    my @moves = map {ord} split // => $input;
-    push @moves => @SUFFIX_MOVES;
-
-    #
-    # Create a list
-    #
-    my $list = List:: -> new -> init (size => $LIST_SIZE);
-
-    #
-    # Apply the set of moves $ITERATIONS times
-    #
-    $list -> move ($_) for (@moves) x $ITERATIONS;
-
-    #
-    # And print out the hex of the dense hash
-    #
-    say "Solution 2: ", $list -> dense_hash;
-}
+my $hash = Puzzle::Stuff::KnotHash:: -> new -> init -> encode ($input);
+say "Solution 2: ", $hash;
 
 
 __END__
