@@ -93,11 +93,14 @@ use experimental 'signatures';
 # 
 
 
+use Puzzle::Stuff;   # https://github.com/Abigail/Puzzle-Stuff
+
 @ARGV = "input" unless @ARGV;
 
 my $LIST_SIZE    = 256;
 my $ITERATIONS   =  64;
 my @SUFFIX_MOVES = (17, 31, 73, 47, 23);
+my $BOARD_SIZE   = 128;
 
 #
 # Class for the list. (Copied from Day 10)
@@ -194,7 +197,7 @@ chomp $input;
 
 my $total_bits = 0;
 my $board;
-foreach my $row (0 .. 127) {
+foreach my $row (0 .. ($BOARD_SIZE - 1)) {
     my @moves = map {ord} split // => "$input-$row";
     push @moves => @SUFFIX_MOVES;
 
@@ -220,47 +223,28 @@ foreach my $row (0 .. 127) {
 say "Solution 1: ", $total_bits;
 
 #
-# Turn the board into a graph, mapping grid-points to lists
-# of neigbhours.
+# Find the number of connected components by using UnionFind:
+#    Scan the board. If we find an occupied field then:
+#           - add the field to the union-find structure
+#           - if the fields before or above it are occupied, union
+#                this field with the one before/above it
+#    When we're done scanning the board, we look at the number of sets.
 #
-my %graph;
-foreach my $x (0 .. 127) {
-    foreach my $y (0 .. 127) {
+my $universe = Puzzle::Stuff::UnionFind:: -> new -> init;
+sub label {join "," => @_}  # Make a unique label out of coordinates
+foreach my $x (0 .. ($BOARD_SIZE - 1)) {
+    foreach my $y (0 .. ($BOARD_SIZE - 1)) {
         if ($$board [$x] [$y]) {
-            $graph {"$x,$y"} = [];  # Make sure to pick up isolated nodes
-            foreach my $d (1, -1) {
-                my $xd = $x + $d;
-                my $yd = $y + $d;
-                if ($xd >= 0 && $xd < 128) {
-                    if ($$board [$xd] [$y]) {
-                        push @{$graph {"$x,$y"}} => "$xd,$y";
-                    }
-                }
-                if ($yd >= 0 && $yd < 128) {
-                    if ($$board [$x] [$yd]) {
-                        push @{$graph {"$x,$y"}} => "$x,$yd";
-                    }
-                }
-            }
+            my $p = label ($x, $y);
+            $universe -> add ($p);
+            $universe -> union ($p, label $x - 1,  $y)
+                    if $x > 0 && $$board [$x - 1] [$y];
+            $universe -> union ($p, label $x,  $y - 1)
+                    if $y > 0 && $$board [$x] [$y - 1];
         }
     }
 }
 
-my $components;
-while (keys %graph) {
-    #
-    # Pick a random one
-    #
-    my ($node) = keys %graph;
-    my  @todo  = $node;
-    my %seen = ($node => 1);
-    while (@todo) {
-        push @todo => grep {!$seen {$_} ++} @{$graph {shift @todo}};
-    }
-    $components ++;
-    delete $graph {$_} for keys %seen;
-}
-
-say "Solution 2: ", $components;
+say "Solution 2: ", $universe -> nr_of_sets;
 
 __END__
