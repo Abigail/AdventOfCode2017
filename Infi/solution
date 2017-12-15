@@ -1,0 +1,71 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use experimental 'signatures';
+
+#
+# Part 1
+#
+
+@ARGV = "input" unless @ARGV;
+
+local $/;
+my $input = <>;
+
+my @robots;
+my @steps;
+
+#
+# Parse the input; we'll be agnostic to the amount of robots,
+# or to the dimension of the space they work in.
+#
+my $number      = qr /[-+]?[0-9]+/;
+my $number_list = qr /$number (?:,\s* $number)*/x;
+
+while ($input =~ s/^\[(?<position>$number_list) \s*\] \s*//x) {
+    push @robots => [$+ {position} =~ /$number/g];
+}
+
+while ($input =~ s/^\((?<position>$number_list) \s*\) \s*//x) {
+    push @steps => [$+ {position} =~ /$number/g];
+}
+
+die "Failed to parse input" if $input;
+
+
+#
+# Walk the robots. During each "turn", we compare each robot with
+# the first robots (that is, the one with index 0). If any coordinate
+# of any robot differs from the corresponding coordinate of the first
+# robot, not all robots are at the same position this turn.
+#
+my $count = 0;             # Count how often all robots are at the same spot.
+my $robot0 = $robots [0];  # Reference robot.
+while (@steps >= @robots) {
+    my $same = 1;
+    for (my $r = 0; $r < @robots; $r ++) {
+        my $robot = $robots [$r];
+        my $step  = shift @steps;
+
+        #
+        # Move the robot
+        #
+        $$robot [$_] += $$step [$_] for keys @$robot;
+
+        #
+        # It's fine to compare the first robot to itself
+        #
+        $same &&= $$robot [$_] == $$robot0 [$_] for keys @$robot;
+    }
+    $count ++ if $same;
+}
+
+say "Solution 1: ", $count;
+
+
+__END__
