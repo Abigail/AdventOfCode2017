@@ -101,9 +101,9 @@ die "Failed to parse input" if $input;
 # of any robot differs from the corresponding coordinate of the first
 # robot, not all robots are at the same position this turn.
 #
-my $count = 0;             # Count how often all robots are at the same spot.
+my $count  = 0;            # Count how often all robots are at the same spot.
 my $robot0 = $robots [0];  # Reference robot.
-my $board;                 # Keep track of where the robots meet
+my $board;                 # Keep track of where the robots meet.
 while (@steps >= @robots) {
     my $same = 1;
     for (my $r = 0; $r < @robots; $r ++) {
@@ -111,7 +111,7 @@ while (@steps >= @robots) {
         my $step  = shift @steps;
 
         #
-        # Move the robot
+        # Move the robot.
         #
         $$robot [$_] += $$step [$_] for keys @$robot;
 
