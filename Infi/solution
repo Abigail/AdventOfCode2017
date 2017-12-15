@@ -9,7 +9,7 @@ no  warnings 'syntax';
 use experimental 'signatures';
 
 #
-# Part 1
+# Solution for the Infi Advent of Code 2017 problem
 #
 
 @ARGV = "input" unless @ARGV;
@@ -46,6 +46,7 @@ die "Failed to parse input" if $input;
 #
 my $count = 0;             # Count how often all robots are at the same spot.
 my $robot0 = $robots [0];  # Reference robot.
+my $board;                 # Keep track of where the robots meet
 while (@steps >= @robots) {
     my $same = 1;
     for (my $r = 0; $r < @robots; $r ++) {
@@ -63,9 +64,26 @@ while (@steps >= @robots) {
         $same &&= $$robot [$_] == $$robot0 [$_] for keys @$robot;
     }
     $count ++ if $same;
+    if ($same) {
+        #
+        # This is for part 2. We're no longer agnostic about
+        # the dimension of the space the robots work in.
+        #
+        $$board [$$robot0 [1]] [$$robot0 [0]] ++;
+    }
 }
 
 say "Solution 1: ", $count;
+say "Solution 2: ";
 
+#
+# For the second part, we only have to display part of the board.
+# The full board shows the Info logo, the bottom lines a number.
+# The number is the solution to the exercise.
+#
+foreach my $row (@$board [-5 .. -1]) {
+    print $_ ? "#" : ' ' foreach @$row;
+    print "\n";
+}
 
 __END__
