@@ -63,8 +63,8 @@ while (@steps >= @robots) {
         #
         $same &&= $$robot [$_] == $$robot0 [$_] for keys @$robot;
     }
-    $count ++ if $same;
     if ($same) {
+        $count ++;
         #
         # This is for part 2. We're no longer agnostic about
         # the dimension of the space the robots work in.
