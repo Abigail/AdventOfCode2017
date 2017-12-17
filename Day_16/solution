@@ -132,12 +132,7 @@ sub dance ($dancers) { # Changes $dancers
     # We are assuming there's a short cycle; this cycle may
     # start at an index other than 0.
     #
-    # There will always be a cycle, as there are only 16!
-    # positions of 16 dancers. However, 16! is 20_922_789_888_000
-    # which is much, much more than 1_000_000_000.
-    #
-    # It turns out, the input has been cooked for a small cycle.
-    # Meh.
+    # It can be proven there's a relative short cycle (less than 6000)
     #
 
     my $dancers = [@DANCERS];
