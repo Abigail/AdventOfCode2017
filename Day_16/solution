@@ -1,0 +1,191 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use experimental 'signatures';
+
+#
+# Part 1
+#
+# You come upon a very unusual sight; a group of programs here appear
+# to be dancing.
+# 
+# There are sixteen programs in total, named a through p. They start
+# by standing in a line: a stands in position 0, b stands in position
+# 1, and so on until p, which stands in position 15.
+# 
+# The programs' dance consists of a sequence of dance moves:
+# 
+#   - Spin, written sX, makes X programs move from the end to the front,
+#           but maintain their order otherwise. (For example, s3 on abcde
+#           produces cdeab).
+#   - Exchange, written xA/B, makes the programs at positions A and B
+#           swap places.
+#   - Partner, written pA/B, makes the programs named A and B swap places.
+# 
+# For example, with only five programs standing in a line (abcde),
+# they could do the following dance:
+# 
+#   - s1, a spin of size 1: eabcd.
+#   - x3/4, swapping the last two programs: eabdc.
+#   - pe/b, swapping programs e and b: baedc.
+# 
+# After finishing their dance, the programs end up in order baedc.
+# 
+# You watch the dance for a while and record their dance moves (your
+# puzzle input). In what order are the programs standing after their
+# dance?
+# 
+
+#
+# Part 2
+#
+# Now that you're starting to get a feel for the dance moves, you
+# turn your attention to the dance as a whole.
+# 
+# Keeping the positions they ended up in from their previous dance,
+# the programs perform it again and again: including the first dance,
+# a total of one billion (1000000000) times.
+# 
+# In the example above, their second dance would begin with the order
+# baedc, and use the same dance moves:
+# 
+#   - s1, a spin of size 1: eabcd.
+#   - x3/4, swapping the last two programs: eabdc.
+#   - pe/b, swapping programs e and b: baedc.
+# 
+# In what order are the programs standing after their billion dances?
+#
+
+@ARGV = "input" unless @ARGV;
+
+#
+# Parse the input
+#
+local $/;
+my @input      = split /,/ => scalar <>;
+my $name       = qr /[a-p]/;
+my $position   = qr /1[0-5]|[0-9]/;
+my $amount     = qr /1[0-6]|[1-9]/;
+
+my @DANCERS    = ('a' .. 'p');
+my $SPIN       = 1;
+my $EXCHANGE   = 2;
+my $PARTNER    = 3;
+
+my $ITERATIONS = 1_000_000_000;
+
+my @moves;
+foreach (@input) {
+    if (m {^ s (?<amount> $amount) $}x) {
+        push @moves => [$SPIN, $+ {amount}];
+    }
+    elsif (m {^ x (?<pos1> $position) / (?<pos2> $position) $}x) {
+        push @moves => [$EXCHANGE => $+ {pos1}, $+ {pos2}];
+    }
+    elsif (m {^ p (?<name1> $name) / (?<name2> $name) $}x) {
+        push @moves => [$PARTNER => $+ {name1}, $+ {name2}];
+    }
+    else {
+        die "Failed to parse move '$_'";
+    }
+}
+
+sub dance ($dancers) { # Changes $dancers
+    foreach my $move (@moves) {
+        if ($$move [0] == $SPIN) {
+            splice @$dancers => 0, 0, splice @$dancers => -$$move [1];
+        }
+        elsif ($$move [0] == $EXCHANGE) {
+            @$dancers [@$move [1, 2]] = @$dancers [@$move [2, 1]];
+        }
+        elsif ($$move [0] == $PARTNER) {
+            my ($p1) = grep {$$dancers [$_] eq $$move [1]} keys @$dancers;
+            my ($p2) = grep {$$dancers [$_] eq $$move [2]} keys @$dancers;
+            @$dancers [$p1, $p2] = @$dancers [$p2, $p1];
+        }
+        else {
+            die "Unexpected move"
+        }
+    }
+    $dancers;
+}
+
+
+{
+    #
+    # Part 1
+    #
+    my $dancers = [@DANCERS];
+    dance $dancers;
+    say "Solution 1: ", @$dancers;
+}
+
+{
+    #
+    # Part 2
+    #
+    # We are assuming there's a short cycle; this cycle may
+    # start at an index other than 0.
+    #
+    # There will always be a cycle, as there are only 16!
+    # positions of 16 dancers. However, 16! is 20_922_789_888_000
+    # which is much, much more than 1_000_000_000.
+    #
+    # It turns out, the input has been cooked for a small cycle.
+    # Meh.
+    #
+
+    my $dancers = [@DANCERS];
+
+    my %seen;         # Track positions of dancers after a dance.
+
+    my $cycle_begin;  # Track when we have a cycle. Begin
+    my $cycle_end;    # and end position.
+    
+    my $count = 0;
+    #
+    # We want to record the start position, so in the while loop,
+    # we do bookkeeping first, then dance at the end.
+    #
+    while (1) {
+        my $key = join "" => @$dancers;
+        if (exists $seen {$key}) {
+            #
+            # We've detected a cycle; $count is the value where the
+            # cycle ends, where as $seen {$key} is the index where 
+            # this position first was seen; thus the start of the cycle.
+            #
+            $cycle_end   = $count;
+            $cycle_begin = $seen {$key};
+            last;
+        }
+        else {
+            $seen {$key} = $count;
+        }
+    }
+    continue {
+        dance $dancers;
+        $count ++;
+    }
+
+    #
+    # Reversing %seen maps indices to dance positions
+    #
+    my %position = reverse %seen;
+
+    #
+    # What index do we need?
+    #
+    my $target_index = $cycle_begin + ($ITERATIONS - $cycle_begin) %
+                                       ($cycle_end - $cycle_begin);
+
+    say "Solution 2: ", $position {$target_index};
+}
+
+
+__END__
