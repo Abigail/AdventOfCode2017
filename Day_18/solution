@@ -156,14 +156,108 @@ package Tablet {
             $last_sound {$self};
         }
     }
+
+    package Tablet::Part2 {
+        use Hash::Util::FieldHash qw [fieldhash];
+        our @ISA = qw [Tablet];
+
+        fieldhash my %send_to;     # Which tablet do we send to?
+        fieldhash my %queue;       # Queue with values received.
+        fieldhash my %times_send;  # Keep track of many times we send.
+
+        #
+        # Initialize our stuff, then let the parent class do its thing
+        #
+        sub init ($self, %args) {
+            $send_to {$self}       = delete $args {send_to};
+            my $id                 = delete $args {id};
+            $queue   {$self}       = [];
+            $self -> SUPER::init (%args);
+            $registers {$self} {p} = $id;
+        }
+
+        #
+        # Receive a value: put it in the queue, and if we're
+        # in a waiting status, switch back to a running status
+        #
+        sub received ($self, $value) {
+            push @{$queue {$self}} => $value;
+            $status {$self} = $STATUS_RUNNING
+                  if $status {$self} == $STATUS_WAITING;
+        }
+
+        #
+        # Send a value to another tablet.
+        #
+        sub snd ($self, $val) {
+            $send_to    {$self} -> received ($self -> value ($val));
+            $times_send {$self} ++;
+        }
+
+        #
+        # Receive an item from the queue, and store it in
+        # a register. If the queue is empty, start waiting.
+        #
+        sub rcv ($self, $reg) {
+            if (@{$queue {$self}}) {
+                $registers {$self} {$reg} = shift @{$queue {$self}};
+            }
+            else {
+                #
+                # Wait. *Decrement* the pc, so the next time
+                # around, we'll try again
+                #
+                $pc {$self} --;
+                $status {$self} = $STATUS_WAITING;
+            }
+        }
+
+        #
+        # Return how often we send something.
+        #
+        sub times_send ($self) {
+            $times_send {$self};
+        }
+    }
 }
 
 
-my $table1 = Tablet::Part1:: -> new -> init;
-while ($table1 -> status != $STATUS_DONE) {
-       $table1 -> tick;
+#
+# Part 1
+#
+
+{
+    my $tablet = Tablet::Part1:: -> new -> init;
+    while ($tablet -> status != $STATUS_DONE) {
+           $tablet -> tick;
+    }
+    say "Solution 1: ", $tablet -> last_sound;
 }
-say "Solution 1: ", $table1 -> last_sound;
+
+
+#
+# Part 2
+#
+{
+    my $tablet_0 = Tablet::Part2:: -> new;
+    my $tablet_1 = Tablet::Part2:: -> new;
+    $tablet_0 -> init (send_to => $tablet_1, id => 0);
+    $tablet_1 -> init (send_to => $tablet_0, id => 1);
+
+    #
+    # We keep going as long as at least one table is in the running status.
+    #
+    {
+        $tablet_0 -> tick while $tablet_0 -> status == $STATUS_RUNNING;
+        $tablet_1 -> tick while $tablet_1 -> status == $STATUS_RUNNING;
+
+        # Only need to check tablet_0 here.
+        redo if $tablet_0 -> status == $STATUS_RUNNING;
+    }
+
+    say "Solution 2: ", $tablet_1 -> times_send;
+}
+           
 
 
 
