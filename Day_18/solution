@@ -1,0 +1,170 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use experimental 'signatures';
+
+@ARGV = "input" unless @ARGV;
+
+my @instructions;
+
+my %expected_registers = (
+    snd => 1,
+    set => 2,
+    add => 2,
+    mul => 2,
+    mod => 2,
+    rcv => 1,
+    jgz => 2,
+);
+
+while (<>) {
+    chomp;
+    my ($command, @registers) = split;
+    if (@registers == $expected_registers {$command}) {
+        push @instructions => [$command => @registers];
+    }
+    else {
+        die "Failed to parse $_";
+    }
+}
+
+my $STATUS_RUNNING = 0;
+my $STATUS_WAITING = 1;
+my $STATUS_DONE    = 2;
+
+package Tablet {
+    use Hash::Util::FieldHash qw [fieldhash];
+
+    fieldhash my %registers;
+    fieldhash my %pc;
+    fieldhash my %status;
+
+    sub new  ($class) {bless do {\my $var} => $class}
+    sub init ($self, %args) {
+        $registers {$self} = {map {$_ => 0} 'a' .. 'z'};
+        $pc        {$self} = 0;
+        $status    {$self} = $STATUS_RUNNING;
+        $self;
+    }
+
+    #
+    # Return a value. If the input is the name of a register,
+    # we return the value in the register, else we just return
+    # the input.
+    #
+    sub value ($self, $name_or_value) {
+        $registers {$self} {$name_or_value} // $name_or_value;
+    }
+
+    #
+    # set, add, multiply or take the modulus
+    #
+    sub set ($self, $name, $val) {
+        $registers {$self} {$name}  = $self -> value ($val);
+    }
+
+    sub add ($self, $name, $val) {
+        $registers {$self} {$name} += $self -> value ($val);
+    }
+
+    sub mul ($self, $name, $val) {
+        $registers {$self} {$name} *= $self -> value ($val);
+    }
+
+    sub mod ($self, $name, $val) {
+        $registers {$self} {$name} %= $self -> value ($val);
+    }
+
+    #
+    # Jump an offset. Note that the program counter already has
+    # incremented, so we have to subtract one.
+    #
+    sub jgz ($self, $cond, $offset) {
+        if ($self -> value ($cond) > 0) {
+            $pc {$self} += $self -> value ($offset) - 1;
+        }
+    }
+
+    #
+    # Return the current status
+    #
+    sub status ($self) {
+        $status {$self};
+    }
+
+    #
+    # Perform a single instruction. Set status to done if 
+    # the program counter gets below 0, or goes outside
+    # of the set of instructions.
+    #
+    sub tick ($self) {
+        return unless $self -> status == $STATUS_RUNNING;
+
+        my ($command, @args) = @{$instructions [$pc {$self} ++]};
+        $self -> $command (@args);
+        $status {$self} = $STATUS_DONE if $pc {$self} < 0 ||
+                                          $pc {$self} >= @instructions;
+    }
+
+    #
+    # The different parts of the puzzle treat the 'snd'
+    # and 'rcv' actions differently, so set up different
+    # classes from each part, inheriting from the main class.
+    #
+    # Calling each of the methods in the parent class will
+    # be a fatal error.
+    #
+    sub snd ($self, $freq) {...;}
+    sub rcv ($self, $rec)  {...;}
+
+    #
+    # Quick and dirty subclasses, which go out and reach into their
+    # parents data parts. Yuck.
+    #
+    package Tablet::Part1 {
+        use Hash::Util::FieldHash qw [fieldhash];
+        our @ISA = qw [Tablet];
+
+        fieldhash my %last_sound;  # Remember the last sound played.
+
+        #
+        # Play sound
+        #
+        sub snd ($self, $freq) {
+            $last_sound {$self} = $self -> value ($freq);
+        }
+
+        #
+        # Optionally recover a sound played. If we do,
+        # that's the end of the program.
+        #
+        sub rcv ($self, $rec) {
+            if ($self -> value ($rec)) {
+                $status {$self} = $STATUS_DONE;
+            }
+        }
+
+        #
+        # Retrieve the last sound played
+        #
+        sub last_sound ($self) {
+            $last_sound {$self};
+        }
+    }
+}
+
+
+my $table1 = Tablet::Part1:: -> new -> init;
+while ($table1 -> status != $STATUS_DONE) {
+       $table1 -> tick;
+}
+say "Solution 1: ", $table1 -> last_sound;
+
+
+
+__END__
