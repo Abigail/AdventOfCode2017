@@ -1,0 +1,190 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use experimental 'signatures';
+
+#
+# Part 1
+#
+# Somehow, a network packet got lost and ended up here. It's trying
+# to follow a routing diagram (your puzzle input), but it's confused
+# about where to go.
+# 
+# Its starting point is just off the top of the diagram. Lines (drawn
+# with |, -, and +) show the path it needs to take, starting by going
+# down onto the only line connected to the top of the diagram. It
+# needs to follow this path until it reaches the end (located somewhere
+# within the diagram) and stop there.
+# 
+# Sometimes, the lines cross over each other; in these cases, it needs
+# to continue going the same direction, and only turn left or right
+# when there's no other option. In addition, someone has left letters
+# on the line; these also don't change its direction, but it can use
+# them to keep track of where it's been. For example:
+# 
+#         |          
+#         |  +--+    
+#         A  |  C    
+#     F---|----E|--+ 
+#         |  |  |  D 
+#         +B-+  +--+ 
+# 
+# Given this diagram, the packet needs to take the following path:
+# 
+#   - Starting at the only line touching the top of the diagram,
+#     it must go down, pass through A, and continue onward to
+#     the first +.
+#   - Travel right, up, and right, passing through B in the process.
+#   - Continue down (collecting C), right, and up (collecting D).
+#   - Finally, go all the way left through E and stopping at F.
+# 
+# Following the path to the end, the letters it sees on its path are
+# ABCDEF.
+# 
+# The little packet looks up at you, hoping you can help it find the
+# way. What letters will it see (in the order it would see them) if
+# it follows the path? (The routing diagram is very wide; make sure
+# you view it without line wrapping.)
+# 
+
+#
+# Part 2
+#
+# The packet is curious how many steps it needs to go.
+# 
+# For example, using the same routing diagram from the example above...
+# 
+#         |          
+#         |  +--+    
+#         A  |  C    
+#     F---|--|-E---+ 
+#         |  |  |  D 
+#         +B-+  +--+ 
+# 
+# ...the packet would go:
+# 
+#     - 6 steps down (including the first line at the top of the diagram).
+#     - 3 steps right.
+#     - 4 steps up.
+#     - 3 steps right.
+#     - 4 steps down.
+#     - 3 steps right.
+#     - 2 steps up.
+#     - 13 steps left (including the F it stops on).
+# 
+# This would result in a total of 38 steps.
+# 
+# How many steps does the packet need to go?1
+# 
+
+@ARGV = "input" unless @ARGV;
+
+my $board;
+
+my $SPACE  = ' ';
+my $CORNER = '+';
+my $X      =  0;
+my $Y      =  1;
+
+#
+# Read in the board; we're be storing it "as is".
+#
+while (<>) {
+    chomp;
+    push @$board => [split //];
+}
+
+
+#
+# Find the starting position; this will be the single point
+# on the board with $x = 0 and $$board [$x] [$y] ne ' '.
+#
+my $start;
+foreach my $y (keys @{$$board [0]}) {
+    if ($$board [0] [$y] ne $SPACE) {
+        $start = [0, $y];
+        last;
+    }
+}
+
+#
+# Return true if ($x, $y) is on the board, and not a space;
+# ergo, a place where the packet can travel to.
+#
+sub onpath ($x, $y) {
+    $x >= 0 && $x < @$board && $y >= 0 && $y < @{$$board [$x]} &&
+          $$board [$x] [$y] ne $SPACE;
+}
+
+#
+# Return true of the current position is a corner
+#
+sub is_corner ($p) {
+    $$board [$$p [$X]] [$$p [$Y]] eq $CORNER;
+}
+
+#
+# Given a board, list which neighbours it has.
+# Neighbours cannot be spaces.
+#
+sub neighbours ($p) {
+    my ($x, $y) = @$p;
+    my @neighbours;
+    for my $n ([$x - 1, $y],
+               [$x + 1, $y],
+               [$x,     $y - 1],
+               [$x,     $y + 1]) {
+        push @neighbours => $n if onpath @$n;
+    }
+    @neighbours;
+}
+
+
+#
+# Trace the path.
+# Move is as follows:
+#    1) If we only have one neighbour, this is the end (or start).
+#    2) If the current position is a corner, the next position
+#       must have both x and y coordinates different from
+#       the previous position.
+#    3) Else, the next position must have either the x, or the y
+#       coordinate the same as the previous position, but not both.
+# 
+my $previous = [-1, $$start [$Y]];  # To get us started
+my $current  = [@$start];
+
+my $path = "";
+while (1) {
+    $path .= $$board [$$current [$X]] [$$current [$Y]];
+    my @neighbours = neighbours $current;
+    last if @neighbours == 1 && length $path > 1;
+    my @next;
+    if (is_corner $current) {
+        # Find neighbour with all coordinates different from $previous
+        @next = grep {($$_ [$X] != $$previous [$X]) &&
+                      ($$_ [$Y] != $$previous [$Y])} @neighbours;
+    }
+    else {
+        # Find neighbour with one coordinate different from $previous
+        @next = grep {($$_ [$X] == $$previous [$X]) xor
+                      ($$_ [$Y] == $$previous [$Y])} @neighbours;
+    }
+    die "Unexpected board configuration at @$current"
+         unless @next == 1;
+
+    $previous = $current;
+    $current  = $next [0];
+}
+
+say "Solution 2: ", length $path;    # Solution of part 2 first...
+
+# Remove any non-letters from $path
+$path =~ s/\Pl+//g;
+say "Solution 1: ", $path;
+
+__END__
