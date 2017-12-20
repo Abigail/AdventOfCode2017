@@ -1,0 +1,115 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use experimental 'signatures';
+
+@ARGV = "input2" unless @ARGV;
+
+use List::Util qw [sum];
+
+my $IDX_LABEL   =  0;
+my $IDX_PX      =  1;
+my $IDX_PY      =  2;
+my $IDX_PZ      =  3;
+my $IDX_VX      =  4;
+my $IDX_VY      =  5;
+my $IDX_VZ      =  6;
+my $IDX_AX      =  7;
+my $IDX_AY      =  8;
+my $IDX_AZ      =  9;
+my $IDX_TOTAL_A = 10;
+my $IDX_TOTAL_V = 11;
+
+my $number = qr /-?[0-9]+/;
+my @particles;
+while (<>) {
+    chomp;
+    /^p=<(?<px>$number),
+         (?<py>$number),
+         (?<pz>$number)>, \s*
+      v=<(?<vx>$number),
+         (?<vy>$number),
+         (?<vz>$number)>, \s*
+      a=<(?<ax>$number),
+         (?<ay>$number),
+         (?<az>$number)>$/x or die "Failed to parse $_";
+    push @particles => [$. - 1, @+ {qw [px py pz vx vy vz ax ay az]}];
+}
+
+#
+# The particle which stays the closest is the particle with the
+# smallest acceleration. Ties are broken by their initial speed.
+# If two particles have the same acceleration and initial speed,
+# the one started the closest will remain the closest.
+#
+# So, we will order by acceleration, speed, position; and take
+# the first one.
+#
+# We only have a 1000 items. No need for a GRT or ST.
+#
+
+#
+# FIX ME. BREAKING OF TIES IS INCORRECT
+#
+my ($first) = sort {sum (map {abs} @$a [$IDX_AX .. $IDX_AZ]) <=>
+                    sum (map {abs} @$b [$IDX_AX .. $IDX_AZ])      ||
+                    sum (map {abs} @$a [$IDX_VX .. $IDX_VZ]) <=>
+                    sum (map {abs} @$b [$IDX_VX .. $IDX_VZ])      ||
+                    sum (map {abs} @$a [$IDX_PX .. $IDX_PZ]) <=>
+                    sum (map {abs} @$b [$IDX_PX .. $IDX_PZ])} @particles;
+
+say "Solution 1: " => $$first [$IDX_LABEL];
+
+foreach my $particle (@particles) {
+    $$particle [$IDX_TOTAL_A] = sum map {abs} @$particle [$IDX_AX .. $IDX_AZ];
+    $$particle [$IDX_TOTAL_V] = sum map {abs}
+                                    $$particle [$IDX_VX] + $$particle [$IDX_AX],
+                                    $$particle [$IDX_VY] + $$particle [$IDX_AY],
+                                    $$particle [$IDX_VZ] + $$particle [$IDX_AZ],
+}
+
+my ($f) = sort {$$a [$IDX_TOTAL_A] <=> $$b [$IDX_TOTAL_A] ||
+                $$a [$IDX_TOTAL_V] <=> $$b [$IDX_TOTAL_V]} @particles;
+say "@$f";
+
+
+__END__
+my $ticks = 0;
+my $previous = @particles + 1;
+$| = 1;
+while (@particles > 1) {
+    $ticks ++;
+    #
+    # Move all particles; store their positions
+    #
+    my %position;
+    foreach my $particle (@particles) {
+        $$particle [$IDX_PX] += ($$particle [$IDX_VX] += $$particle [$IDX_AX]);
+        $$particle [$IDX_PY] += ($$particle [$IDX_VY] += $$particle [$IDX_AY]);
+        $$particle [$IDX_PZ] += ($$particle [$IDX_VZ] += $$particle [$IDX_AZ]);
+        $position  {$$particle [$IDX_PX],
+                    $$particle [$IDX_PY],
+                    $$particle [$IDX_PZ]} ++;
+    }
+    #
+    # Filter out all particles which collide -- only if they are the
+    # only one on that position they stay
+    #
+    @particles = grep {$position {$$_ [$IDX_PX],
+                                  $$_ [$IDX_PY],
+                                  $$_ [$IDX_PZ]} == 1} @particles;
+
+    if (@particles < $previous) {
+        printf "Tick: %4d; Left: %4d\n" => $ticks, $previous = @particles;
+    }
+
+    last if $ticks >= 10_000;
+}
+
+
+__END__
