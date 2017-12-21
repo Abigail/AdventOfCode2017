@@ -1,0 +1,280 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use experimental 'signatures';
+
+#
+# Part 1
+#
+# You find a program trying to generate some art. It uses a strange
+# process that involves repeatedly enhancing the detail of an image
+# through a set of rules.
+# 
+# The image consists of a two-dimensional square grid of pixels that
+# are either on (#) or off (.). The program always begins with this
+# pattern:
+# 
+#     .#.
+#     ..#
+#     ###
+# 
+# Because the pattern is both 3 pixels wide and 3 pixels tall, it is
+# said to have a size of 3.
+# 
+# Then, the program repeats the following process:
+# 
+#   - If the size is evenly divisible by 2, break the pixels up into
+#     2x2 squares, and convert each 2x2 square into a 3x3 square by
+#     following the corresponding enhancement rule.
+#   - Otherwise, the size is evenly divisible by 3; break the pixels
+#     up into 3x3 squares, and convert each 3x3 square into a 4x4
+#     square by following the corresponding enhancement rule.
+# 
+# Because each square of pixels is replaced by a larger one, the image
+# gains pixels and so its size increases.
+# 
+# The artist's book of enhancement rules is nearby (your puzzle input);
+# however, it seems to be missing rules. The artist explains that
+# sometimes, one must rotate or flip the input pattern to find a
+# match. (Never rotate or flip the output pattern, though.) Each
+# pattern is written concisely: rows are listed as single units,
+# ordered top-down, and separated by slashes. For example, the following
+# rules correspond to the adjacent patterns:
+# 
+#     ../.#  =  ..
+#               .#
+#
+#                     .#.
+#     .#./..#/###  =  ..#
+#                     ###
+#
+#                             #..#
+#     #..#/..../#..#/.##.  =  ....
+#                             #..#
+#                             .##.
+#
+# When searching for a rule to use, rotate and flip the pattern as
+# necessary. For example, all of the following patterns match the
+# same rule:
+#
+#     .#.   .#.   #..   ###
+#     ..#   #..   #.#   ..#
+#     ###   ###   ##.   .#.
+# 
+# Suppose the book contained the following two rules:
+# 
+#     ../.# => ##./#../...
+#     .#./..#/### => #..#/..../..../#..#
+# 
+# As before, the program begins with this pattern:
+# 
+#     .#.
+#     ..#
+#     ###
+# 
+# The size of the grid (3) is not divisible by 2, but it is divisible
+# by 3. It divides evenly into a single square; the square matches
+# the second rule, which produces:
+#
+#     #..#
+#     ....
+#     ....
+#     #..#
+#
+# The size of this enhanced grid (4) is evenly divisible by 2, so
+# that rule is used. It divides evenly into four squares:
+# 
+#     #.|.#
+#     ..|..
+#     --+--
+#     ..|..
+#     #.|.#
+# 
+# Each of these squares matches the same rule (../.# => ##./#../...),
+# three of which require some flipping and rotation to line up with
+# the rule. The output for the rule is the same in all four cases:
+# 
+#     ##.|##.
+#     #..|#..
+#     ...|...
+#     ---+---
+#     ##.|##.
+#     #..|#..
+#     ...|...
+# 
+# Finally, the squares are joined into a new grid:
+# 
+#     ##.##.
+#     #..#..
+#     ......
+#     ##.##.
+#     #..#..
+#     ......
+# 
+# Thus, after 2 iterations, the grid contains 12 pixels that are on.
+# 
+# How many pixels stay on after 5 iterations?
+#
+
+#
+# Part 2
+#
+# How many pixels stay on after 18 iterations?
+#
+
+@ARGV = "input" unless @ARGV;
+
+my $RUNS_PART_1 =  5;
+my $RUNS_PART_2 = 18;
+my $RUNS_MAX    = $RUNS_PART_1 < $RUNS_PART_2 ? $RUNS_PART_2
+                                              : $RUNS_PART_1;
+
+
+#
+# The board we begin with.
+#
+my $board = [map {[/([.#])/g]} split /\n/ => << "--"];
+.#.
+..#
+###
+--
+
+my %map; # Maps patterns to new pixel sets.
+
+#
+# Flip a pattern vertically
+#
+sub reflect ($input) {
+    [reverse @$input];
+}
+
+#
+# Rotate a pattern 90 degrees counter clockwise.
+#
+sub rotate ($input) {
+    my $output;
+    for (my $x = 0; $x < @$input; $x ++) {
+        for (my $y = 0; $y < @$input; $y ++) {
+            #
+            # Transform the coordinates such that the center
+            # of the square in on original; rotate, then
+            # transfer back. This is the transformation:
+            #
+            #  [x'] = [x] - [T]
+            #  [y'] = [y] - [T]
+            #
+            # where T is half of the size of the board minus 1.
+            #
+            # Rotated coordinates are found by the
+            # following formula:
+            #
+            #  [x''] = [cos (phi)  -sin (phi)] [x']
+            #  [y''] = [sin (phi)   cos (phi)] [y']
+            #
+            # With phi being 90 degrees, cos (phi) = 0, and sin (phi) = 1
+            #
+            # Ergo, we get the following:
+            #
+            #   x'' = -y'
+            #   y'' =  x'
+            #
+            # But this is after translating the points towards the
+            # center, and transforming them back. So the complete
+            # formula becomes:
+            #
+            #   x'' = T - (y - T) = 2 * T - y
+            #   y'' = T + (x - T) =         x
+            #
+            my $new_x = @$input - 1 - $y;
+            my $new_y =               $x;
+
+            $$output [$new_x] [$new_y] = $$input [$x] [$y];
+        }
+    }
+    $output;
+}
+
+
+#
+# Take a pattern, turn it into a unique key; we also use this
+# to count the number of pixels that are one.
+#
+sub key ($input) {
+    join "" => map {@$_} @$input;
+}
+
+#
+# Process input. This is the stage where we do the
+# rotations and reflections.
+#
+while (<>) {
+    chomp;
+    my ($input, $output) = split /\s*=>\s*/;
+
+    #
+    # Convert the input and output.
+    #
+    my $input_pattern  = [map {[split //]} split '/' => $input];
+    my $output_pattern = [map {[split //]} split '/' => $output];
+
+    #
+    # To get all reflections and rotations, we rotate the
+    # pattern 90 degrees, 1 to 3 times, then do the same
+    # with a reflected pattern. We don't have to reflect
+    # both horizontally and vertically; a single reflection
+    # will do.
+    #
+    foreach my $pat ($input_pattern, reflect $input_pattern) {
+        $map {key $pat} = $output_pattern;
+        for (1 .. 3) {
+            $pat = rotate $pat;
+            $map {key $pat} = $output_pattern;
+        }
+    }
+}
+
+
+#
+# Run it. One each run, we slice the board into 2x2 or 3x3 sections,
+# replacing them by 3x3 or 4x4 sections.
+#
+foreach my $run (1 .. $RUNS_MAX) {
+    my $chop_size = @$board % 2 ? 3 : 2;
+    my $new_board;
+    for (my ($X, $nX) = (0, 0); $X < @$board; $X  += $chop_size,
+                                              $nX += $chop_size + 1) {
+        for (my ($Y, $nY) = (0, 0); $Y < @$board; $Y  += $chop_size,
+                                                  $nY += $chop_size + 1) {
+            my $slice;
+            for (my $x = 0; $x < $chop_size; $x ++) {
+                for (my $y = 0; $y < $chop_size; $y ++) {
+                    $$slice [$x] [$y] = $$board [$X + $x] [$Y + $y];
+                }
+            }
+            my $next = $map {key $slice};
+            #
+            # Copy this slice to the new board
+            #
+            for (my $x = 0; $x < @$next; $x ++) {
+                for (my $y = 0; $y < @$next; $y ++) {
+                    $$new_board [$x + $nX] [$y + $nY] = $$next [$x] [$y];
+                }
+            }
+        }
+    }
+    $board = $new_board;
+    if ($run == $RUNS_PART_1) {
+        say "Solution 1: ", key ($board) =~ y/#/#/;  # Count pixels
+    }
+    if ($run == $RUNS_PART_2) {
+        say "Solution 2: ", key ($board) =~ y/#/#/;  # Count pixels
+    }
+}
+
+
+__END__
