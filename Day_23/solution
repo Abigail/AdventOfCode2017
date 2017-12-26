@@ -1,0 +1,52 @@
+#!/opt/perl/bin/perl
+
+use 5.026;
+
+use strict;
+use warnings;
+no  warnings 'syntax';
+
+use experimental 'signatures';
+
+
+@ARGV = "input" unless @ARGV;
+
+use Puzzle::Stuff::VM::AoC;
+
+my @program;
+
+while (<>) {
+    chomp;
+    push @program => [split];
+}
+
+package Puzzle::Stuff::VM::AoC::Day_23 {
+    our @ISA = qw [Puzzle::Stuff::VM::AoC];
+
+    use Hash::Util::FieldHash qw [fieldhash];
+
+    fieldhash my %mul_count;
+
+    sub cmd_mul ($self, @args) {
+        $mul_count {$self} ++;
+        $self -> SUPER::cmd_mul (@args);
+    }
+
+    sub mul_count ($self) {
+        $mul_count {$self}
+    }
+
+    sub run ($self, @args) {
+        $mul_count {$self} = 0;
+        $self -> SUPER::run (@args);
+    }
+}
+
+my $vm = Puzzle::Stuff::VM::AoC::Day_23:: -> new
+                                          -> init (program => \@program);
+$vm -> run;
+
+say "Solution 1: ", $vm -> mul_count;
+
+
+__END__
